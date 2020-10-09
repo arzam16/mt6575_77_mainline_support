@@ -1,0 +1,539 @@
+diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
+index 4572db3fa5ae..9c4af941f3fd 100644
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -1353,7 +1353,8 @@ dtb-$(CONFIG_ARCH_MEDIATEK) += \
+ 	mt7623n-bananapi-bpi-r2.dtb \
+ 	mt7629-rfb.dtb \
+ 	mt8127-moose.dtb \
+-	mt8135-evbp1.dtb
++	mt8135-evbp1.dtb \
++	mt8317-acer-giordano.dtb
+ dtb-$(CONFIG_ARCH_MILBEAUT) += milbeaut-m10v-evb.dtb
+ dtb-$(CONFIG_ARCH_MSTARV7) += \
+ 	infinity-msc313-breadbee_crust.dtb \
+diff --git a/arch/arm/boot/dts/mt6577.dtsi b/arch/arm/boot/dts/mt6577.dtsi
+new file mode 100644
+index 000000000000..0e0771bfe08f
+--- /dev/null
++++ b/arch/arm/boot/dts/mt6577.dtsi
+@@ -0,0 +1,213 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Author: Boris Lysov <arzamas-16@mail.ee>
++ */
++
++/dts-v1/;
++#include <dt-bindings/interrupt-controller/irq.h>
++#include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/clock/mt6577-clk.h>
++
++/ {
++	#address-cells = <1>;
++	#size-cells = <1>;
++	compatible = "mediatek,mt6577";
++	interrupt-parent = <&sysirq>;
++
++	cpus {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		enable-method = "mediatek,mt6589-smp";
++
++		cpu@0 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a9";
++			reg = <0x0>;
++		};
++		
++		cpu@1 {
++			device_type = "cpu";
++			compatible = "arm,cortex-a9";
++			reg = <0x1>;
++		};
++	};
++
++	pmu {
++		compatible = "arm,cortex-a9-pmu";
++		interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>,
++				 <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
++		interrupt-affinity = <&{/cpus/cpu@0}>,
++					 <&{/cpus/cpu@1}>;
++	};
++	
++	scu@c000a000 {
++		compatible = "arm,cortex-a9-scu";
++		reg = <0xc000a000 0x100>;
++	};
++	
++	reserved-memory {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++		
++		resmem0: memory@c5000000 {
++			reg = <0xc5000000 0xaffffff>;
++			no-map;
++		};
++		
++		resmem1: memory@e0000000 {
++			reg = <0xe0000000 0xfffffff>;
++			no-map;
++		};
++		
++		resmem2: memory@f0010000 {
++			reg = <0xf0010000 0xffdffff>;
++			no-map;
++		};
++		
++		resmem3: memory@f8000000 {
++			reg = <0xf8000000 0xc>;
++			no-map;
++		};
++	};
++
++	clocks {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		compatible = "simple-bus";
++		ranges;
++
++		system_clk: dummy_sys {
++			compatible = "fixed-clock";
++			clock-frequency = <13000000>;
++			#clock-cells = <0>;
++		};
++
++		rtc_clk: dummy_rtc {
++			compatible = "fixed-clock";
++			clock-frequency = <32768>;
++			#clock-cells = <0>;
++		};
++
++		uart_clk: dummy_uart {
++			compatible = "fixed-clock";
++			clock-frequency = <41708250>;
++			#clock-cells = <0>;
++		};
++	};
++
++	soc {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		compatible = "simple-bus";
++		ranges;
++
++		gpio: pinctrl@c0005000 {
++			compatible = "mediatek,mt6577-pinctrl";
++			reg = <0xc0005000 0xeea>; // 0x1000 might also work
++			reg-names = "gpio", "iocfgl", "iocfgb", "iocfgr", "iocfgt";
++			gpio-controller;
++			#gpio-cells = <2>;
++		};
++
++		timer: timer@c1002000 {
++			compatible = "mediatek,mt6577-timer";
++			reg = <0xc1002000 0x80>;
++			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_LOW>;
++			clocks = <&system_clk>, <&rtc_clk>;
++		};
++
++		sysirq: interrupt-controller@c0009050 {
++			compatible = "mediatek,mt6577-sysirq";
++			interrupt-controller;
++			#interrupt-cells = <3>;
++			interrupt-parent = <&gic>;
++			reg = <0xc0009050 0x10>; // 0x1c
++		};
++
++		gic: interrupt-controller@c000b000 {
++			compatible = "arm,cortex-a9-gic";
++			interrupt-controller;
++			#interrupt-cells = <3>;
++			interrupt-parent = <&gic>;
++			reg = <0xc000b000 0x1000>,
++				  <0xc000a100 0x2000>;
++		};
++		
++		// TODO Actually support 'mediatek,mt6577-pericfg'
++		pericfg: pericfg@c1000000 {
++			compatible = "mediatek,mt6577-pericfg",
++				"mediatek,mt2701-pericfg", "syscon";
++			reg = <0xc1000000 0x408>;
++			#reset-cells = <1>;
++			#clock-cells = <1>;
++		};
++		
++		apdma: dma-controller@c1001000 {
++			compatible = "mediatek,mt6577-uart-dma";
++			reg = <0xc1001000 0x80>,
++				  <0xc1001080 0x80>,
++				  <0xc1001100 0x80>,
++				  <0xc1001180 0x80>,
++				  <0xc1001200 0x80>,
++				  <0xc1001280 0x80>,
++				  <0xc1001300 0x80>,
++				  <0xc1001380 0x80>,
++				  <0xc1001400 0x80>,
++				  <0xc1001480 0x80>,
++				  <0xc1001500 0x80>,
++				  <0xc1001580 0x80>,
++				  <0xc1001600 0x80>;
++			interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 59 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 60 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 61 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 62 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 63 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 64 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 65 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 66 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 67 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 68 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 69 IRQ_TYPE_LEVEL_LOW>,
++					 <GIC_SPI 70 IRQ_TYPE_LEVEL_LOW>;
++			dma-requests = <13>;
++			clocks = <&pericfg CLK_PERI_APDMA>;
++			clock-names = "apdma"; 
++			mediatek,dma-33bits;
++			#dma-cells = <1>;
++		};
++
++		uart0: serial@c1009000 {
++			compatible = "mediatek,mt6577-uart";
++			reg = <0xc1009000 0x400>;
++			interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_LOW>;
++			clocks = <&uart_clk>;
++			status = "disabled";
++		};
++
++		uart1: serial@c100a000 {
++			compatible = "mediatek,mt6577-uart";
++			reg = <0xc100a000 0x400>;
++			interrupts = <GIC_SPI 52 IRQ_TYPE_LEVEL_LOW>;
++			clocks = <&uart_clk>;
++			status = "disabled";
++		};
++
++		uart2: serial@c100b000 {
++			compatible = "mediatek,mt6577-uart";
++			reg = <0xc100b000 0x400>;
++			interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_LOW>;
++			clocks = <&uart_clk>;
++			status = "disabled";
++		};
++
++		uart3: serial@c100c000 {
++			compatible = "mediatek,mt6577-uart";
++			reg = <0xc100c000 0x400>;
++			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_LOW>;
++			clocks = <&uart_clk>;
++			status = "disabled";
++		};
++	};
++};
+diff --git a/arch/arm/boot/dts/mt8317-acer-giordano.dts b/arch/arm/boot/dts/mt8317-acer-giordano.dts
+new file mode 100644
+index 000000000000..bdf245f7ffd5
+--- /dev/null
++++ b/arch/arm/boot/dts/mt8317-acer-giordano.dts
+@@ -0,0 +1,81 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Author: Boris Lysov <arzamas-16@mail.ee>
++ */
++
++/dts-v1/;
++#include "mt6577.dtsi"
++
++/ {
++	model = "Acer B1-A71";
++	compatible = "mediatek,mt8317",
++				"mediatek,mt6577";
++
++	chosen {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++		
++		bootargs = "console=tty0 console=ttyS0,115200n8 lcm=1-ej070na earlyprintk ignore_loglevel";
++		
++		/*
++		 * If initrd is appended to boot.img instead of being baked in kernel image,
++		 * these following values have to be uncommented, and initrd-end value must
++		 * to be recalculated.
++		 */
++		// linux,initrd-start = <0x4a00000>;
++		// linux,initrd-end = <0x4aec349>;
++		
++		stdout-path = &uart3;
++
++		// Use UBoot-allocated framebuffer for now
++		fb0: video@1fac0000 {
++			compatible = "simple-framebuffer";
++			// memory-region = <&display_reserved>;
++			reg = <0x1fac0000 (1024 * 600 * 3)>;
++			width = <1024>;
++			height = <600>;
++			stride = <(1024 * 3)>;
++			format = "r8g8b8";
++			status = "okay";
++		};
++	};
++
++	memory {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		device_type = "memory";
++		reg = <0x0 0x20000000>;
++	};
++		
++	reserved-memory {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++		
++		display_reserved: video@1fac0000 {
++			// based on /proc/iomem of downstream kernel
++			// reg = <0x1f600000 0x9fffff>;
++			
++			// Use UBoot-allocated framebuffer for now
++			reg = <0x1fac0000 0x258000>;
++			no-map;
++		};
++	};
++};
++
++&uart0 {
++	status = "okay";
++};
++
++&uart1 {
++	status = "okay";
++};
++
++&uart2 {
++	status = "okay";
++};
++
++&uart3 {
++	status = "okay";
++};
+diff --git a/arch/arm/mach-mediatek/Kconfig b/arch/arm/mach-mediatek/Kconfig
+index 9e0f592d87d8..07cf92e2154a 100644
+--- a/arch/arm/mach-mediatek/Kconfig
++++ b/arch/arm/mach-mediatek/Kconfig
+@@ -15,6 +15,10 @@ config MACH_MT2701
+ 	bool "MediaTek MT2701 SoCs support"
+ 	default ARCH_MEDIATEK
+ 
++config MACH_MT6577
++	bool "MediaTek MT6577 SoCs support"
++	default ARCH_MEDIATEK
++
+ config MACH_MT6589
+ 	bool "MediaTek MT6589 SoCs support"
+ 	default ARCH_MEDIATEK
+diff --git a/arch/arm/mach-mediatek/mediatek.c b/arch/arm/mach-mediatek/mediatek.c
+index e6e9f93a1f01..317e5170e258 100644
+--- a/arch/arm/mach-mediatek/mediatek.c
++++ b/arch/arm/mach-mediatek/mediatek.c
+@@ -14,18 +14,23 @@
+ 
+ 
+ #define GPT6_CON_MT65xx 0x10008060
++#define GPT6_CON_MT6577 0xC1002060
+ #define GPT_ENABLE      0x31
+ 
+ static void __init mediatek_timer_init(void)
+ {
+ 	void __iomem *gpt_base;
+ 
+-	if (of_machine_is_compatible("mediatek,mt6589") ||
++	if (of_machine_is_compatible("mediatek,mt6577") ||
++		of_machine_is_compatible("mediatek,mt6589") ||
+ 	    of_machine_is_compatible("mediatek,mt7623") ||
+ 	    of_machine_is_compatible("mediatek,mt8135") ||
+ 	    of_machine_is_compatible("mediatek,mt8127")) {
+ 		/* turn on GPT6 which ungates arch timer clocks */
+-		gpt_base = ioremap(GPT6_CON_MT65xx, 0x04);
++		if (of_machine_is_compatible("mediatek,mt6577"))
++			gpt_base = ioremap(GPT6_CON_MT6577, 0x04);
++		else
++			gpt_base = ioremap(GPT6_CON_MT65xx, 0x04);
+ 
+ 		/* enable clock and set to free-run */
+ 		writel(GPT_ENABLE, gpt_base);
+@@ -38,6 +43,7 @@ static void __init mediatek_timer_init(void)
+ 
+ static const char * const mediatek_board_dt_compat[] = {
+ 	"mediatek,mt2701",
++	"mediatek,mt6577",
+ 	"mediatek,mt6589",
+ 	"mediatek,mt6592",
+ 	"mediatek,mt7623",
+@@ -47,6 +53,7 @@ static const char * const mediatek_board_dt_compat[] = {
+ 	NULL,
+ };
+ 
++// FIXME MT6577 is Cortex-A9
+ DT_MACHINE_START(MEDIATEK_DT, "Mediatek Cortex-A7 (Device Tree)")
+ 	.dt_compat	= mediatek_board_dt_compat,
+ 	.init_time	= mediatek_timer_init,
+diff --git a/arch/arm/mach-mediatek/platsmp.c b/arch/arm/mach-mediatek/platsmp.c
+index 16a4ee6c9590..1bc3be955cba 100644
+--- a/arch/arm/mach-mediatek/platsmp.c
++++ b/arch/arm/mach-mediatek/platsmp.c
+@@ -29,6 +29,12 @@ static const struct mtk_smp_boot_info mtk_mt8135_tz_boot = {
+ 	{ 0x3f8, 0x3f8, 0x3f8 },
+ };
+ 
++static const struct mtk_smp_boot_info mtk_mt6577_boot = {
++	0xc011a000, 0x0,
++	{ 0x534c4156 },
++	{ 0x8 },
++};
++
+ static const struct mtk_smp_boot_info mtk_mt6589_boot = {
+ 	0x10002000, 0x34,
+ 	{ 0x534c4131, 0x4c415332, 0x41534c33 },
+@@ -49,6 +55,7 @@ static const struct of_device_id mtk_tz_smp_boot_infos[] __initconst = {
+ };
+ 
+ static const struct of_device_id mtk_smp_boot_infos[] __initconst = {
++	{ .compatible   = "mediatek,mt6577", .data = &mtk_mt6577_boot },
+ 	{ .compatible   = "mediatek,mt6589", .data = &mtk_mt6589_boot },
+ 	{ .compatible   = "mediatek,mt7623", .data = &mtk_mt7623_boot },
+ 	{ .compatible   = "mediatek,mt7629", .data = &mtk_mt7623_boot },
+diff --git a/include/dt-bindings/clock/mt6577-clk.h b/include/dt-bindings/clock/mt6577-clk.h
+new file mode 100644
+index 000000000000..192b058462c0
+--- /dev/null
++++ b/include/dt-bindings/clock/mt6577-clk.h
+@@ -0,0 +1,127 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++/*
++ * Author: Boris Lysov <arzamas-16@mail.ee>
++ */
++
++#ifndef _DT_BINDINGS_CLK_MT6577_H
++#define _DT_BINDINGS_CLK_MT6577_H
++
++/* PERI_GLOBALCON_PDN0 */
++
++#define CLK_PERI_NFI						0
++#define CLK_PERI_THERM						1
++#define CLK_PERI_PWM1						2
++#define CLK_PERI_PWM2						3
++#define CLK_PERI_PWM3						4
++#define CLK_PERI_PWM456						5
++#define CLK_PERI_PWM7						6
++#define CLK_PERI_SIMIF0						7
++#define CLK_PERI_SIMIF1						8
++#define CLK_PERI_USB1						9
++#define CLK_PERI_USB2						10
++#define CLK_PERI_CCIF						11
++#define CLK_PERI_APDMA						12
++#define CLK_PERI_APXGPT						13
++#define CLK_PERI_MSDC0						15
++#define CLK_PERI_MSDC1						16
++#define CLK_PERI_MSDC2						17
++#define CLK_PERI_MSDC3						18
++#define CLK_PERI_APHIF						19
++#define CLK_PERI_MDHIF						20
++#define CLK_PERI_NLI_ARB					21
++#define CLK_PERI_ACCDET						22
++#define CLK_PERI_IRDA						23
++#define CLK_PERI_UART0						24
++#define CLK_PERI_UART1						25
++#define CLK_PERI_UART2						26
++#define CLK_PERI_UART3						27
++#define CLK_PERI_I2C0						28
++#define CLK_PERI_I2C1						29
++#define CLK_PERI_I2C_DUAL					30
++#define CLK_PERI_AUXADC						31
++
++/* PERI_GLOBALCON_PDN1 */
++
++#define CLK_PERI_HACC						32
++#define CLK_PERI_TRNG						33
++
++/* MMSYS1 Clock Gating #0 */
++
++#define CLK_MM_VBUF							64
++#define CLK_MM_VDEC							65
++#define CLK_MM_VENC							66
++#define CLK_MM_SMI_LARB2_ACP_BUS			67
++#define CLK_MM_SMI_LARB2_260MHZ				68
++#define CLK_MM_SMI_LARB2_EMI				69
++#define CLK_MM_SMI_LARB2_ACP_BUS_EMI		70
++#define CLK_MM_SMI_LARB1_EMI				71
++#define CLK_MM_SMI_LARB0_EMI				72
++
++/* MMSYS1 Clock Gating #1 */
++
++#define CLK_MM_VRZ1							96
++#define CLK_MM_CSI2							97
++#define CLK_MM_FD							98
++#define CLK_MM_RESZ_LB						99
++#define CLK_MM_TV_ROT						100
++#define CLK_MM_LCD							101
++#define CLK_MM_RGB_ROT2						102
++#define CLK_MM_PRZ1							103
++#define CLK_MM_R_DMA1						104
++#define CLK_MM_VDO_ROT1						105
++#define CLK_MM_RGB_ROT1						106
++#define CLK_MM_VRZ							107
++#define CLK_MM_RGB_ROT0						108
++#define CLK_MM_PRZ0_MOUT					109
++#define CLK_MM_PRZ0							110
++#define CLK_MM_VDO_ROT0						111
++#define CLK_MM_MOUT							112
++#define CLK_MM_OVL_DMA_MIMO					113
++#define CLK_MM_OVL_DMA_BPS					114
++#define CLK_MM_OVL_DMA						115
++#define CLK_MM_IPP_MOUT						116
++#define CLK_MM_IPP							117
++#define CLK_MM_EIS							118
++#define CLK_MM_CRZ							119
++#define CLK_MM_JPEG_DMA						120
++#define CLK_MM_BRZ_MOUT						121
++#define CLK_MM_BRZ							122
++#define CLK_MM_JPEG_DEC						123
++#define CLK_MM_JPEG_ENC						124
++#define CLK_MM_R_DMA0_MOUT					125
++#define CLK_MM_R_DMA0						126
++#define CLK_MM_CAM							127
++
++/*MMSYS1 Clock Gating #2 */
++
++#define CLK_MM_SCAM							128
++#define CLK_MM_SPI							129
++#define CLK_MM_TVC							130
++#define CLK_MM_TVE							131
++#define CLK_MM_DPI							132
++#define CLK_MM_DSI							133
++#define CLK_MM_SMI_LARB2					134
++#define CLK_MM_SMI_LARB1					135
++#define CLK_MM_SMI_LARB0					136
++#define CLK_MM_LCD_EMI						136
++
++/* MMSYS2 Clock Gating */
++
++#define CLK_MM_SMI_LARB3_FULL				160
++#define CLK_MM_GDC_SHARE_MACRO				162
++#define CLK_MM_G2D							163
++#define CLK_MM_MFG							164
++#define CLK_MM_G3D							174
++#define CLK_MM_F26M							175
++#define CLK_MM_GDC_SHARE_MACRO_HALF			176
++#define CLK_MM_SMI_LARB3_HALF				177
++#define CLK_MM_AUDIO_CORE					178
++#define CLK_MM_MFG_HALF						179
++
++/* MMSYS2 Clock Gating */
++
++#define CLK_AUDIO_AFE						194
++#define CLK_AUDIO_ADC						197
++#define CLK_AUDIO_I2S						198
++
++#endif /* _DT_BINDINGS_CLK_MT6577_H */

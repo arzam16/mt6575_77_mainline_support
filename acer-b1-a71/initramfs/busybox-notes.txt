@@ -1,0 +1,4 @@
+I used busybox v1.32.0 with almost all tools enabled in config.
+I also run 'strip' on compiled binary to reduce the size, but 'strip'
+program must be for ARM achitecture, in other words use 'strip' from
+your toolchain for cross-compiling.

@@ -1,0 +1,113 @@
+#!/bin/sh
+
+/bin/mount -t proc proc /proc || echo 'already mounted proc' > /dev/kmsg
+/bin/mount -t sysfs sysfs /sys || echo 'already mounted sys' > /dev/kmsg
+/bin/mount -t devpts none /dev/pts -o gid=4,mode=620 
+/bin/mount -n -t tmpfs none /dev
+
+# Create memory access devices
+/bin/mknod -m 660 /dev/mem c 1 1
+/bin/mknod -m 640 /dev/kmem c 1 2
+/bin/mknod -m 660 /dev/port c 1 4
+
+# Create kmsg and then output everything to it
+/bin/mknod -m 600 /dev/kmsg c 1 11
+
+# Try to disable watchdog as soon as possible
+echo "Reading watchdog register" > /dev/kmsg
+/sbin/devmem 0xC0000000 h > /dev/kmsg 2&>1
+echo "Disabling watchdog NOW" > /dev/kmsg
+/sbin/devmem 0xC0000000 h 0x2200 > /dev/kmsg 2&>1
+echo "Reading watchdog register again..." > /dev/kmsg
+/sbin/devmem 0xC0000000 h > /dev/kmsg 2&>1
+
+# Create other devices
+/bin/mknod -m 622 /dev/console c 5 1 > /dev/kmsg 2>&1
+/bin/mknod -m 666 /dev/null c 1 3 > /dev/kmsg 2>&1
+/bin/mknod -m 666 /dev/zero c 1 5 > /dev/kmsg 2>&1
+/bin/mknod -m 666 /dev/ptmx c 5 2 > /dev/kmsg 2>&1
+/bin/mknod -m 666 /dev/tty c 5 0 > /dev/kmsg 2>&1
+/bin/mknod -m 444 /dev/random c 1 8 > /dev/kmsg 2>&1
+/bin/mknod -m 444 /dev/urandom c 1 9 > /dev/kmsg 2>&1
+/bin/mknod -m 622 /dev/tty0 c 4 0 > /dev/kmsg 2>&1
+/bin/mknod -m 622 /dev/tty1 c 4 1 > /dev/kmsg 2>&1
+/bin/mknod -m 622 /dev/tty2 c 4 2 > /dev/kmsg 2>&1
+/bin/mknod -m 622 /dev/tty3 c 4 3 > /dev/kmsg 2>&1
+/bin/mknod -m 666 /dev/ttyS0 c 4 64 > /dev/kmsg 2>&1
+/bin/mknod -m 666 /dev/ttyS1 c 4 65 > /dev/kmsg 2>&1
+/bin/mknod -m 666 /dev/ttyS2 c 4 66 > /dev/kmsg 2>&1
+/bin/mknod -m 666 /dev/ttyS3 c 4 67 > /dev/kmsg 2>&1
+/bin/mknod /dev/fb0 c 29 0 > /dev/kmsg 2>&1
+/bin/chown root:tty /dev/{console,ptmx,tty} > /dev/kmsg 2>&1
+
+# Setup users for devices
+setupUsers() {
+	/bin/chown root:kmem /dev/mem > /dev/kmsg 2>&1
+	/bin/chown root:kmem /dev/kmem > /dev/kmsg 2>&1
+	/bin/chown root:mem /dev/port > /dev/kmsg 2>&1
+}
+
+testOutput() {
+	echo "Should see this at all and where?"
+	
+	for device in "kmsg" "console" "ttyS0" "ttyS1" \
+		"ttyS2" "ttyS3" "ttyMT0" "ttyMT1" "ttyMT2" \
+		"ttyMT3" "tty0" "tty1" "tty2" "tty3" "tty4"; do
+		echo "I should see this on $device" > "/dev/$device"
+	done
+}
+
+enumerateDev() {
+	echo "Printing /dev contents" > /dev/kmsg
+	find /dev -print > /dev/kmsg
+	echo "----------------------" > /dev/kmsg
+	sleep 1s
+}
+
+runMdev() {
+	echo "Populating /dev with mdev -s" > /dev/kmsg
+	/sbin/mdev -s > /dev/kmsg 2>&1
+	echo "Printing /dev contents" > /dev/kmsg
+	find /dev -print > /dev/kmsg
+	echo "----------------------" > /dev/kmsg
+	sleep 1s
+}
+
+mountSysfs() {
+	echo "Mounting sysfs" > /dev/kmsg
+	/bin/mount -t sysfs /sys 2>&1
+	echo "Populating /dev with mdev -s" > /dev/kmsg
+	/sbin/mdev -s > /dev/kmsg 2>&1
+	echo "Printing /dev contents" > /dev/kmsg
+	find /dev -print > /dev/kmsg
+	echo "----------------------" > /dev/kmsg
+	sleep 1s
+}
+
+testScreen() {
+	echo "[1] Running fbtest" > /dev/kmsg
+	/bin/fbtest > /dev/kmsg 2>&1
+	sleep 1s
+	echo "[2] Running fbtest" > /dev/kmsg
+	/bin/fbtest > /dev/kmsg 2>&1
+	sleep 1s
+	echo "[3] Running fbtest" > /dev/kmsg
+	/bin/fbtest > /dev/kmsg 2>&1
+	sleep 1s
+}
+
+findScreenOffset() {
+	# Read and write 1 byte at a time for slow speed
+	dd if=/dev/urandom of=/dev/mem bs=1 count=35471360 skip=501399553
+	sleep 7s
+}
+
+echo 'cttyhack'
+setsid cttyhack /bin/sh > /dev/kmsg 2>&1
+exec cttyhack /bin/sh
+sleep 3s
+
+echo 'setconsole'
+/sbin/setconsole /dev/ttyS0 > /dev/kmsg 2>&1
+exec /bin/sh
+sleep 5
