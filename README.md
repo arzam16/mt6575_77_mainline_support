@@ -72,6 +72,12 @@ A few words on initramfs. I decided to stick with simple busybox-powered initram
 
 Pro-tip: use .XZ compression for both kernel and ramdisk. It will take a few more seconds to boot, but you'll save a lot of precious space. Just for the sake of example, BOOTIMG partition on my tablet is just 6144 kB.
 
+## But where's a DTS for MT6575?
+
+Since MT6577 is a dual-core version of MT6575, just remove the second CPU core definition from DTS and you're ready. MT6575 also lacks 3rd I2C bus, but as of now it's not declared for MT6577 either.
+
+It might be a great idea to use MT6575 as a base DTS, and create a small DTS for MT6577 with all necessary changes like second CPU core and third I2C bus.
+
 ## Post scriptum
 
 I would like to thank everyone in [postmarketOS community](https://wiki.postmarketos.org/wiki/Category:Community) who helped me and expressed any kind of support.
