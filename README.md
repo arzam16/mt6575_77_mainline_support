@@ -23,7 +23,7 @@ The code published in this repository has been tested and proved working (more o
 
 1. **The second core does NOT work on MT6577!!!** The problem must be somewhere in SMP initialization code. Downstream (v3.4.x) kernels for MT6577 have additional code (`mediatek/platform/mt6577/kernel/core/mt-smp.c : void __init smp_init_cpus`) for bringing up the second core (something about software reset workaround), but I failed to port it properly. I decided to keep my attempt to use existing MediaTek SMP initialization system (`arch/arm/mach-mediatek/platsmp.c`) althrough it doesn't work. Nevertheless, first core works fine.
 
-2. It's possible to define watchdog in DTS (`reg = <0xc0000000 0x1c>;`), but **the current binding and driver doesn't support MT6575/77** CPUs. Because of that, the device will power off itself after a brief period of time without any error or warning. There are 2 workaround for this:
+2. It's possible to define watchdog in DTS (`reg = <0xc0000000 0x1c>;`), but **the current binding and driver doesn't support MT6575/77** CPUs. Because of that, the device will power off by itself after a brief period of time without any error or warning. There are 2 workarounds for this:
 
     2.1 Patch the `mtk_wdt_set_time_out_value` parameter in `mtk_wdt_init` function of your UBoot binary. Keep in mind huge values won't work. If you set the timeout to 255 seconds (0xff), your device will power off little earlier.
     
